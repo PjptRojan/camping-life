@@ -1,0 +1,30 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-stone-50 text-slate-700 antialiased;
+  }
+}
+
+@layer utilities {
+  /* Thin, themed scrollbar for the gear/services panels */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: #d6d3d1 transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    @apply rounded-full bg-stone-300;
+  }
+}

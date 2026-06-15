@@ -1,0 +1,36 @@
+{
+  "name": "camping-life",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Premium Camping-as-a-Service (CaaS) booking platform",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@reduxjs/toolkit": "^2.2.7",
+    "axios": "^1.17.0",
+    "formik": "^2.4.9",
+    "lucide-react": "^0.408.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-redux": "^9.1.2",
+    "react-router-dom": "^7.17.0",
+    "react-toastify": "^11.1.0",
+    "yup": "^1.7.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.42",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "autoprefixer": "^10.4.19",
+    "postcss": "^8.4.39",
+    "tailwindcss": "^3.4.6",
+    "typescript": "^5.5.3",
+    "vite": "^5.3.4"
+  }
+}
