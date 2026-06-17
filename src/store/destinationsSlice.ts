@@ -1,18 +1,21 @@
 /**
  * destinationsSlice.ts
  * -----------------------------------------------------------------------------
- * Server-sourced campsite catalog. Unlike the `booking` slice (which holds the
+ * Server-sourced trek catalog. Unlike the `booking` slice (which holds the
  * user's mutable selections), this slice caches the read-only destination list
  * fetched from the backend, plus the request lifecycle so the UI can show
  * loading / error / empty states.
  *
- * The fetch is exposed as a `createAsyncThunk`; dispatch `loadDestinations()`
- * once on mount and the extraReducers below fold the result into state.
+ * The public catalog is loaded via `loadDestinations`. Admin mutations
+ * (`createDestination` / `updateDestination` / `deleteDestination`) fold their
+ * results straight into `items`, so the public pages reflect edits without a
+ * refetch.
  */
 
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
 import type { Destination } from '@/types/booking';
-import { fetchTravelDestination } from '@/services/api';
+import * as api from '@/services/api';
+import type { DestinationInput } from '@/services/api';
 
 /** Request lifecycle for the destinations fetch. */
 export type RequestStatus = 'idle' | 'loading' | 'succeeded' | 'failed';
@@ -37,8 +40,29 @@ const initialState: DestinationsState = {
  */
 export const loadDestinations = createAsyncThunk<Destination[]>(
   'destinations/load',
-  async () => {
-    return fetchTravelDestination();
+  async () => api.fetchTravelDestination(),
+);
+
+/** Create a destination (admin). Returns the persisted entity. */
+export const createDestination = createAsyncThunk<Destination, DestinationInput>(
+  'destinations/create',
+  async (payload) => api.createDestination(payload),
+);
+
+/** Update a destination by id (admin). Returns the persisted entity. */
+export const updateDestination = createAsyncThunk<
+  Destination,
+  { id: string; data: DestinationInput }
+>('destinations/update', async ({ id, data }) =>
+  api.updateDestination(id, data),
+);
+
+/** Delete a destination by id (admin). Returns the deleted id. */
+export const deleteDestination = createAsyncThunk<string, string>(
+  'destinations/delete',
+  async (id) => {
+    await api.deleteDestination(id);
+    return id;
   },
 );
 
@@ -59,6 +83,16 @@ const destinationsSlice = createSlice({
       .addCase(loadDestinations.rejected, (state, action) => {
         state.status = 'failed';
         state.error = action.error.message ?? 'Failed to load destinations.';
+      })
+      .addCase(createDestination.fulfilled, (state, action) => {
+        state.items.push(action.payload);
+      })
+      .addCase(updateDestination.fulfilled, (state, action) => {
+        const idx = state.items.findIndex((d) => d.id === action.payload.id);
+        if (idx !== -1) state.items[idx] = action.payload;
+      })
+      .addCase(deleteDestination.fulfilled, (state, action) => {
+        state.items = state.items.filter((d) => d.id !== action.payload);
       });
   },
 });

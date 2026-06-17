@@ -8,12 +8,113 @@
  */
 
 import { http } from './httpClient';
-import type { Destination } from '@/types/booking';
+import type { Destination, GearItem, OnSiteService } from '@/types/booking';
 
-/** Fetch the bookable campsite catalog from the backend. */
+/* ------------------------------------------------------------------ */
+/* Destinations                                                        */
+/* ------------------------------------------------------------------ */
+
+/** Fetch the bookable trek catalog from the backend. */
 export async function fetchTravelDestination(): Promise<Destination[]> {
   const { data } = await http.get<Destination[]>('/destinations');
   return data;
+}
+
+/**
+ * Admin payload for creating/updating a destination. Mirrors the backend's
+ * `validateDestination` contract. The `id` is an author-chosen slug, required
+ * on create and taken from the URL on update.
+ */
+export type DestinationInput = Omit<Destination, 'id'> & { id?: string };
+
+/** Create a destination (admin only). The server enforces the auth boundary. */
+export async function createDestination(
+  payload: DestinationInput,
+): Promise<Destination> {
+  const { data } = await http.post<Destination>('/destinations', payload);
+  return data;
+}
+
+/** Update an existing destination by id (admin only). */
+export async function updateDestination(
+  id: string,
+  payload: DestinationInput,
+): Promise<Destination> {
+  const { data } = await http.put<Destination>(`/destinations/${id}`, payload);
+  return data;
+}
+
+/** Delete a destination by id (admin only). */
+export async function deleteDestination(id: string): Promise<void> {
+  await http.delete(`/destinations/${id}`);
+}
+
+/* ------------------------------------------------------------------ */
+/* Gear                                                                */
+/* ------------------------------------------------------------------ */
+
+/** Fetch the rent/buy gear catalog from the backend. */
+export async function fetchGear(): Promise<GearItem[]> {
+  const { data } = await http.get<GearItem[]>('/gear');
+  return data;
+}
+
+/** Admin payload for creating/updating gear. The server generates the id. */
+export type GearInput = Omit<GearItem, 'id'>;
+
+/** Create a gear item (admin only). */
+export async function createGear(payload: GearInput): Promise<GearItem> {
+  const { data } = await http.post<GearItem>('/gear', payload);
+  return data;
+}
+
+/** Update a gear item by id (admin only). */
+export async function updateGear(
+  id: string,
+  payload: GearInput,
+): Promise<GearItem> {
+  const { data } = await http.put<GearItem>(`/gear/${id}`, payload);
+  return data;
+}
+
+/** Delete a gear item by id (admin only). */
+export async function deleteGear(id: string): Promise<void> {
+  await http.delete(`/gear/${id}`);
+}
+
+/* ------------------------------------------------------------------ */
+/* On-site services                                                    */
+/* ------------------------------------------------------------------ */
+
+/** Fetch the premium on-site services catalog from the backend. */
+export async function fetchServices(): Promise<OnSiteService[]> {
+  const { data } = await http.get<OnSiteService[]>('/services');
+  return data;
+}
+
+/** Admin payload for creating/updating a service. The server generates the id. */
+export type ServiceInput = Omit<OnSiteService, 'id'>;
+
+/** Create a service (admin only). */
+export async function createService(
+  payload: ServiceInput,
+): Promise<OnSiteService> {
+  const { data } = await http.post<OnSiteService>('/services', payload);
+  return data;
+}
+
+/** Update a service by id (admin only). */
+export async function updateService(
+  id: string,
+  payload: ServiceInput,
+): Promise<OnSiteService> {
+  const { data } = await http.put<OnSiteService>(`/services/${id}`, payload);
+  return data;
+}
+
+/** Delete a service by id (admin only). */
+export async function deleteService(id: string): Promise<void> {
+  await http.delete(`/services/${id}`);
 }
 
 /* ------------------------------------------------------------------ */
@@ -33,11 +134,16 @@ export interface SignInPayload {
   password: string;
 }
 
+/** A user's authorization level. Mirrors the backend `Role` enum. */
+export type Role = 'USER' | 'ADMIN';
+
 /** The authenticated user as returned by the backend (no password field). */
 export interface AuthUser {
   id: string;
   name: string;
   email: string;
+  /** Drives admin-dashboard access on the client; enforced server-side too. */
+  role: Role;
 }
 
 /** Standard auth response: the signed-in user plus a bearer token. */

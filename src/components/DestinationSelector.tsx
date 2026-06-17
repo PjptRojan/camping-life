@@ -1,14 +1,14 @@
 /**
  * DestinationSelector.tsx
  * -----------------------------------------------------------------------------
- * Visual campsite catalog with terrain filters (Mountain / Lakeside / Forest).
- * The active card is highlighted via Redux state and clicking a card dispatches
- * `setDestination` for instant, app-wide selection feedback.
+ * Visual trek catalog. Each card surfaces the key trek facts (region,
+ * difficulty, altitude, duration) and clicking one dispatches `setDestination`
+ * for instant, app-wide selection feedback.
  */
 
-import { useEffect, useMemo, useState } from "react";
-import { Check, Loader2, MapPin, RotateCw } from "lucide-react";
-import type { Destination, DestinationType } from "@/types/booking";
+import { useEffect } from "react";
+import { Check, Loader2, MapPin, Mountain, RotateCw } from "lucide-react";
+import type { Destination } from "@/types/booking";
 import { useAppDispatch, useAppSelector } from "@/store";
 import { setDestination } from "@/store/bookingSlice";
 import { loadDestinations } from "@/store/destinationsSlice";
@@ -19,24 +19,12 @@ import {
   selectDestinationsStatus,
 } from "@/store/selectors";
 
-/** "All" plus every terrain type — the filter pills shown above the grid. */
-type FilterValue = "All" | DestinationType;
-const FILTERS: readonly FilterValue[] = [
-  "All",
-  "Mountain",
-  "Lakeside",
-  "Forest",
-];
-
 export function DestinationSelector(): JSX.Element {
   const dispatch = useAppDispatch();
   const activeId = useAppSelector((state) => state.booking.activeDestinationId);
   const destinations = useAppSelector(selectDestinations);
   const status = useAppSelector(selectDestinationsStatus);
   const error = useAppSelector(selectDestinationsError);
-
-  // Local UI-only state: which terrain filter is active. Not global concern.
-  const [filter, setFilter] = useState<FilterValue>("All");
 
   // Fetch the catalog once on mount (only while still idle so we don't refetch
   // on every navigation back to the dashboard).
@@ -46,58 +34,25 @@ export function DestinationSelector(): JSX.Element {
     }
   }, [status, dispatch]);
 
-  // Recompute the visible list only when the data or filter changes.
-  const visible = useMemo<readonly Destination[]>(
-    () =>
-      filter === "All"
-        ? destinations
-        : destinations.filter((dest) => dest.type === filter),
-    [destinations, filter],
-  );
-
   return (
     <section aria-labelledby="destinations-heading">
-      <header className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h2
-            id="destinations-heading"
-            className="text-xl font-extrabold tracking-tight text-emerald-900"
-          >
-            Choose your destination
-          </h2>
-          <p className="text-sm text-slate-500">
-            Hand-picked sites across mountains, lakes and forests.
-          </p>
-        </div>
-
-        {/* Terrain filter pills */}
-        <div className="flex flex-wrap gap-2">
-          {FILTERS.map((value) => {
-            const isActive = filter === value;
-            return (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setFilter(value)}
-                className={[
-                  "rounded-full px-4 py-1.5 text-sm font-semibold transition",
-                  isActive
-                    ? "bg-emerald-700 text-white shadow-sm"
-                    : "bg-white text-slate-600 ring-1 ring-stone-200 hover:bg-stone-50",
-                ].join(" ")}
-              >
-                {value}
-              </button>
-            );
-          })}
-        </div>
+      <header className="mb-4">
+        <h2
+          id="destinations-heading"
+          className="text-xl font-extrabold tracking-tight text-emerald-900"
+        >
+          Choose your trek
+        </h2>
+        <p className="text-sm text-slate-500">
+          Hand-picked Himalayan routes across Nepal&rsquo;s great ranges.
+        </p>
       </header>
 
       {/* Loading — first fetch with nothing cached yet. */}
       {status === "loading" && destinations.length === 0 && (
         <div className="flex items-center justify-center gap-2 rounded-2xl bg-white py-16 text-slate-500 ring-1 ring-stone-200">
           <Loader2 className="h-5 w-5 animate-spin" />
-          <span className="text-sm font-medium">Loading destinations…</span>
+          <span className="text-sm font-medium">Loading treks…</span>
         </div>
       )}
 
@@ -105,7 +60,7 @@ export function DestinationSelector(): JSX.Element {
       {status === "failed" && destinations.length === 0 && (
         <div className="flex flex-col items-center gap-3 rounded-2xl bg-white py-16 text-center ring-1 ring-stone-200">
           <p className="text-sm text-slate-500">
-            {error ?? "We couldn’t load destinations."}
+            {error ?? "We couldn’t load treks."}
           </p>
           <button
             type="button"
@@ -118,17 +73,17 @@ export function DestinationSelector(): JSX.Element {
         </div>
       )}
 
-      {/* Empty — fetch succeeded but the catalog is empty (or filtered to none). */}
-      {status === "succeeded" && visible.length === 0 && (
+      {/* Empty — fetch succeeded but the catalog is empty. */}
+      {status === "succeeded" && destinations.length === 0 && (
         <div className="rounded-2xl bg-white py-16 text-center text-sm text-slate-400 ring-1 ring-stone-200">
-          No destinations match this filter.
+          No treks available yet.
         </div>
       )}
 
       {/* Results */}
-      {visible.length > 0 && (
+      {destinations.length > 0 && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {visible.map((dest) => (
+          {destinations.map((dest) => (
             <DestinationCard
               key={dest.id}
               destination={dest}
@@ -152,12 +107,17 @@ interface DestinationCardProps {
   onSelect: () => void;
 }
 
-/** A single selectable campsite tile. Glows when it is the active selection. */
+/** A single selectable trek tile. Glows when it is the active selection. */
 function DestinationCard({
   destination,
   isActive,
   onSelect,
 }: DestinationCardProps): JSX.Element {
+  const duration =
+    destination.durationDaysMin === destination.durationDaysMax
+      ? `${destination.durationDaysMin} days`
+      : `${destination.durationDaysMin}–${destination.durationDaysMax} days`;
+
   return (
     <button
       type="button"
@@ -181,9 +141,14 @@ function DestinationCard({
         {destination.emoji}
       </span>
 
-      <span className="mt-3 inline-flex w-fit rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-bold uppercase tracking-wide text-amber-700">
-        {destination.type}
-      </span>
+      <div className="mt-3 flex flex-wrap gap-1.5">
+        <span className="inline-flex w-fit rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-bold uppercase tracking-wide text-amber-700">
+          {destination.region}
+        </span>
+        <span className="inline-flex w-fit rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-bold uppercase tracking-wide text-emerald-700">
+          {destination.difficulty}
+        </span>
+      </div>
 
       <h3 className="mt-2 text-lg font-bold text-slate-800">
         {destination.name}
@@ -198,11 +163,21 @@ function DestinationCard({
         {destination.description}
       </p>
 
+      {/* Trek facts */}
+      <dl className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+        <div className="flex items-center gap-1">
+          <Mountain className="h-3.5 w-3.5" />
+          <span>{destination.maxAltitudeMeters.toLocaleString()} m</span>
+        </div>
+        <div>{duration}</div>
+        <div>From {destination.startPoint}</div>
+      </dl>
+
       <p className="mt-4 text-sm">
         <span className="text-xl font-extrabold text-emerald-800">
           {formatCurrency(destination.pricePerNight)}
         </span>
-        <span className="text-slate-400"> / night</span>
+        <span className="text-slate-400"> / day</span>
       </p>
     </button>
   );

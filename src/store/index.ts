@@ -15,12 +15,16 @@ import {
 import bookingReducer from './bookingSlice';
 import authReducer from './authSlice';
 import destinationsReducer from './destinationsSlice';
+import gearReducer from './gearSlice';
+import servicesReducer from './servicesSlice';
 
 export const store = configureStore({
   reducer: {
     booking: bookingReducer,
     auth: authReducer,
     destinations: destinationsReducer,
+    gear: gearReducer,
+    services: servicesReducer,
   },
 });
 

@@ -6,30 +6,52 @@
  * through the booking slice so the sidebar receipt stays in lockstep.
  */
 
-import { useMemo, useState } from 'react';
-import { Minus, Plus } from 'lucide-react';
-import type { CartGearItem, GearCategory, GearItem } from '@/types/booking';
-import { GEAR_ITEMS } from '@/data/catalog';
+import { useEffect, useMemo, useState } from 'react';
+import { Loader2, Minus, Plus, RotateCw } from 'lucide-react';
+import type { CartGearItem, GearItem } from '@/types/booking';
 import { useAppDispatch, useAppSelector } from '@/store';
 import {
   addGearItem,
   removeGearItem,
   toggleGearItemMode,
 } from '@/store/bookingSlice';
-import { formatCurrency } from '@/store/selectors';
-
-const CATEGORIES: readonly GearCategory[] = [
-  'Tents & Bedding',
-  'Cooking',
-  'Comfort',
-];
+import { loadGear } from '@/store/gearSlice';
+import {
+  formatCurrency,
+  selectGear,
+  selectGearError,
+  selectGearStatus,
+} from '@/store/selectors';
 
 export function GearMarketplace(): JSX.Element {
   const dispatch = useAppDispatch();
   const cartGear = useAppSelector((state) => state.booking.cartGear);
+  const gear = useAppSelector(selectGear);
+  const status = useAppSelector(selectGearStatus);
+  const error = useAppSelector(selectGearError);
 
-  // Local UI state: the currently open category tab.
-  const [activeTab, setActiveTab] = useState<GearCategory>(CATEGORIES[0]);
+  // Fetch the catalog once on mount (only while idle so we don't refetch on
+  // every navigation back to the dashboard).
+  useEffect(() => {
+    if (status === 'idle') {
+      dispatch(loadGear());
+    }
+  }, [status, dispatch]);
+
+  // Tabs are derived from whatever categories the fetched data contains, in
+  // first-seen order — the backend stores `category` as a free-form string.
+  const categories = useMemo<string[]>(() => {
+    const seen: string[] = [];
+    for (const item of gear) {
+      if (!seen.includes(item.category)) seen.push(item.category);
+    }
+    return seen;
+  }, [gear]);
+
+  // Local UI state: the currently open category tab. Falls back to the first
+  // available category once data loads.
+  const [activeTab, setActiveTab] = useState<string | null>(null);
+  const effectiveTab = activeTab ?? categories[0] ?? null;
 
   // Index cart lines by gearId for O(1) lookups while rendering cards.
   const cartByGearId = useMemo<Record<string, CartGearItem>>(
@@ -38,8 +60,8 @@ export function GearMarketplace(): JSX.Element {
   );
 
   const itemsForTab = useMemo(
-    () => GEAR_ITEMS.filter((item) => item.category === activeTab),
-    [activeTab],
+    () => gear.filter((item) => item.category === effectiveTab),
+    [gear, effectiveTab],
   );
 
   return (
@@ -56,47 +78,83 @@ export function GearMarketplace(): JSX.Element {
         </p>
       </header>
 
-      {/* Category tabs */}
-      <div
-        role="tablist"
-        aria-label="Gear categories"
-        className="mb-5 inline-flex flex-wrap gap-1 rounded-xl bg-stone-100 p-1"
-      >
-        {CATEGORIES.map((category) => {
-          const isActive = category === activeTab;
-          return (
-            <button
-              key={category}
-              role="tab"
-              aria-selected={isActive}
-              type="button"
-              onClick={() => setActiveTab(category)}
-              className={[
-                'rounded-lg px-4 py-2 text-sm font-semibold transition',
-                isActive
-                  ? 'bg-white text-emerald-800 shadow-sm'
-                  : 'text-slate-500 hover:text-slate-700',
-              ].join(' ')}
-            >
-              {category}
-            </button>
-          );
-        })}
-      </div>
+      {/* Loading — first fetch with nothing cached yet. */}
+      {status === 'loading' && gear.length === 0 && (
+        <div className="flex items-center justify-center gap-2 rounded-2xl bg-white py-16 text-slate-500 ring-1 ring-stone-200">
+          <Loader2 className="h-5 w-5 animate-spin" />
+          <span className="text-sm font-medium">Loading gear…</span>
+        </div>
+      )}
 
-      {/* Cards */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {itemsForTab.map((item) => (
-          <GearCard
-            key={item.id}
-            item={item}
-            cartLine={cartByGearId[item.id]}
-            onAdd={() => dispatch(addGearItem(item.id))}
-            onRemove={() => dispatch(removeGearItem(item.id))}
-            onToggleMode={() => dispatch(toggleGearItemMode(item.id))}
-          />
-        ))}
-      </div>
+      {/* Error — fetch failed and we have nothing to show. Offer a retry. */}
+      {status === 'failed' && gear.length === 0 && (
+        <div className="flex flex-col items-center gap-3 rounded-2xl bg-white py-16 text-center ring-1 ring-stone-200">
+          <p className="text-sm text-slate-500">
+            {error ?? 'We couldn’t load gear.'}
+          </p>
+          <button
+            type="button"
+            onClick={() => dispatch(loadGear())}
+            className="inline-flex items-center gap-2 rounded-full bg-emerald-700 px-4 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-800"
+          >
+            <RotateCw className="h-4 w-4" />
+            Try again
+          </button>
+        </div>
+      )}
+
+      {/* Empty — fetch succeeded but the catalog is empty. */}
+      {status === 'succeeded' && gear.length === 0 && (
+        <div className="rounded-2xl bg-white py-16 text-center text-sm text-slate-400 ring-1 ring-stone-200">
+          No gear available yet.
+        </div>
+      )}
+
+      {gear.length > 0 && (
+        <>
+          {/* Category tabs */}
+          <div
+            role="tablist"
+            aria-label="Gear categories"
+            className="mb-5 inline-flex flex-wrap gap-1 rounded-xl bg-stone-100 p-1"
+          >
+            {categories.map((category) => {
+              const isActive = category === effectiveTab;
+              return (
+                <button
+                  key={category}
+                  role="tab"
+                  aria-selected={isActive}
+                  type="button"
+                  onClick={() => setActiveTab(category)}
+                  className={[
+                    'rounded-lg px-4 py-2 text-sm font-semibold transition',
+                    isActive
+                      ? 'bg-white text-emerald-800 shadow-sm'
+                      : 'text-slate-500 hover:text-slate-700',
+                  ].join(' ')}
+                >
+                  {category}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Cards */}
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {itemsForTab.map((item) => (
+              <GearCard
+                key={item.id}
+                item={item}
+                cartLine={cartByGearId[item.id]}
+                onAdd={() => dispatch(addGearItem(item.id))}
+                onRemove={() => dispatch(removeGearItem(item.id))}
+                onToggleMode={() => dispatch(toggleGearItemMode(item.id))}
+              />
+            ))}
+          </div>
+        </>
+      )}
     </section>
   );
 }
@@ -147,7 +205,7 @@ function GearCard({
               mode === 'rent' ? 'text-emerald-800' : 'text-slate-400',
             ].join(' ')}
           >
-            {formatCurrency(item.rentPricePerNight)}
+            {formatCurrency(item.rentPrice)}
             <span className="font-medium text-slate-400">/night</span>
           </p>
           <p

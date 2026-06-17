@@ -11,30 +11,68 @@
 /* Destinations                                                        */
 /* ------------------------------------------------------------------ */
 
-/** The three terrains a guest can pick between. Used for catalog filtering. */
-export type DestinationType = 'Mountain' | 'Lakeside' | 'Forest';
+/**
+ * The Himalayan regions a trek can belong to. Mirrors the backend `TrekRegion`
+ * enum and is the source of truth — keep these in sync with Prisma.
+ */
+export const TREK_REGIONS = [
+  'Everest',
+  'Annapurna',
+  'Langtang',
+  'Manaslu',
+  'Mustang',
+  'Kanchenjunga',
+] as const;
+export type TrekRegion = (typeof TREK_REGIONS)[number];
 
-/** A bookable campsite shown in the {@link DestinationSelector}. */
+/** How demanding a trek is. Mirrors the backend `Difficulty` enum. */
+export const DIFFICULTIES = [
+  'Easy',
+  'Moderate',
+  'Challenging',
+  'Strenuous',
+] as const;
+export type Difficulty = (typeof DIFFICULTIES)[number];
+
+/** The seasons a trek is best attempted in. Mirrors the backend `Season` enum. */
+export const SEASONS = ['Spring', 'Summer', 'Autumn', 'Winter'] as const;
+export type Season = (typeof SEASONS)[number];
+
+/**
+ * A bookable trek shown in the {@link DestinationSelector}. Matches the backend
+ * Nepal-trek model (the agreed source of truth) field-for-field.
+ */
 export interface Destination {
+  /** Stable slug, e.g. "ebc", "abc". Author-assigned, not auto-generated. */
   readonly id: string;
   readonly name: string;
-  readonly type: DestinationType;
+  /** Himalayan region the trek sits in. */
+  readonly region: TrekRegion;
   /** Short, evocative marketing line. */
   readonly description: string;
-  /** Human-readable region, e.g. "Banff, Alberta". */
+  /** Human-readable locale, e.g. "Khumbu, Nepal". */
   readonly location: string;
-  /** Base nightly site fee in USD. */
+  /** Base per-day price in USD. */
   readonly pricePerNight: number;
   /** Emoji used as a lightweight, dependency-free hero visual. */
   readonly emoji: string;
+  /** Highest point reached on the trek, in metres. */
+  readonly maxAltitudeMeters: number;
+  readonly difficulty: Difficulty;
+  /** Shortest and longest typical itinerary, in days. */
+  readonly durationDaysMin: number;
+  readonly durationDaysMax: number;
+  /** Seasons the trek is recommended in. */
+  readonly bestSeasons: Season[];
+  /** Town/airstrip the trek departs from, e.g. "Lukla". */
+  readonly startPoint: string;
+  /** Permits a trekker must carry, e.g. ["TIMS", "Sagarmatha NP"]. */
+  readonly permitsRequired: string[];
 }
 
 /* ------------------------------------------------------------------ */
 /* Gear                                                                */
 /* ------------------------------------------------------------------ */
-
-/** Tabs the gear marketplace is divided into. */
-export type GearCategory = 'Tents & Bedding' | 'Cooking' | 'Comfort';
 
 /**
  * Whether a given gear line item is being rented (priced per night) or bought
@@ -42,14 +80,18 @@ export type GearCategory = 'Tents & Bedding' | 'Cooking' | 'Comfort';
  */
 export type GearMode = 'rent' | 'buy';
 
-/** A catalog gear product. Immutable reference data — never mutated at runtime. */
+/**
+ * A catalog gear product, fetched from the backend. `category` is a free-form
+ * string server-side — the marketplace derives its tabs from whatever values
+ * are present rather than a fixed union.
+ */
 export interface GearItem {
   readonly id: string;
   readonly name: string;
-  readonly category: GearCategory;
+  readonly category: string;
   readonly description: string;
   /** Cost to rent for a single night, in USD. */
-  readonly rentPricePerNight: number;
+  readonly rentPrice: number;
   /** Cost to purchase outright, in USD. */
   readonly buyPrice: number;
   /** Emoji icon for the product card. */
@@ -71,14 +113,15 @@ export interface CartGearItem {
 /* Premium services                                                    */
 /* ------------------------------------------------------------------ */
 
-/** Grouping for the on-site add-on checklist. */
-export type ServiceCategory = 'On-Site Staff' | 'Experiences';
-
-/** A luxury add-on toggled on/off in {@link PremiumServices}. Flat one-off fee. */
+/**
+ * A luxury add-on toggled on/off in {@link PremiumServices}. Flat one-off fee.
+ * `category` is a free-form string server-side; the checklist groups rows by
+ * whatever categories the fetched data contains.
+ */
 export interface OnSiteService {
   readonly id: string;
   readonly name: string;
-  readonly category: ServiceCategory;
+  readonly category: string;
   readonly description: string;
   /** Flat fee for the stay, in USD. */
   readonly price: number;

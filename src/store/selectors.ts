@@ -7,18 +7,14 @@
  *
  * Pricing rules:
  *  - Destination site fee  = pricePerNight * nights
- *  - Gear in "rent" mode   = rentPricePerNight * quantity * nights
+ *  - Gear in "rent" mode   = rentPrice * quantity * nights
  *  - Gear in "buy"  mode   = buyPrice * quantity            (one-off, no nights)
  *  - Services              = flat price each                (one-off)
  *  - Insurance             = flat INSURANCE_FEE when enabled
  */
 
-import type { GearMode } from '@/types/booking';
-import {
-  GEAR_BY_ID,
-  INSURANCE_FEE,
-  SERVICE_BY_ID,
-} from '@/data/catalog';
+import type { GearItem, GearMode, OnSiteService } from '@/types/booking';
+import { INSURANCE_FEE } from '@/data/catalog';
 import type { RootState } from './index';
 
 /** A single, display-ready line on the receipt. */
@@ -51,15 +47,13 @@ export const formatCurrency = (value: number): string =>
 
 /** Compute the cost of a single gear line given its mode and the night count. */
 const gearLineCost = (
-  rentPricePerNight: number,
+  rentPrice: number,
   buyPrice: number,
   mode: GearMode,
   quantity: number,
   nights: number,
 ): number =>
-  mode === 'rent'
-    ? rentPricePerNight * quantity * nights
-    : buyPrice * quantity;
+  mode === 'rent' ? rentPrice * quantity * nights : buyPrice * quantity;
 
 /**
  * The primary selector: joins the user's selections against the static catalog
@@ -68,6 +62,14 @@ const gearLineCost = (
 export const selectReceipt = (state: RootState): ReceiptBreakdown => {
   const { activeDestinationId, nights, cartGear, selectedServiceIds, insuranceEnabled } =
     state.booking;
+
+  // Catalog data is server-sourced now; build id → entity maps for O(1) joins.
+  const gearById: Record<string, GearItem> = Object.fromEntries(
+    state.gear.items.map((g) => [g.id, g]),
+  );
+  const serviceById: Record<string, OnSiteService> = Object.fromEntries(
+    state.services.items.map((s) => [s.id, s]),
+  );
 
   // --- Destination line ---
   const destination = (() => {
@@ -87,11 +89,11 @@ export const selectReceipt = (state: RootState): ReceiptBreakdown => {
 
   // --- Gear lines ---
   const gear: ReceiptLineItem[] = cartGear.flatMap((line) => {
-    const item = GEAR_BY_ID[line.gearId];
+    const item = gearById[line.gearId];
     if (!item) return [];
 
     const amount = gearLineCost(
-      item.rentPricePerNight,
+      item.rentPrice,
       item.buyPrice,
       line.mode,
       line.quantity,
@@ -100,7 +102,7 @@ export const selectReceipt = (state: RootState): ReceiptBreakdown => {
 
     const detail =
       line.mode === 'rent'
-        ? `${formatCurrency(item.rentPricePerNight)}/night × ${line.quantity} × ${nights}n`
+        ? `${formatCurrency(item.rentPrice)}/night × ${line.quantity} × ${nights}n`
         : `${formatCurrency(item.buyPrice)} × ${line.quantity} (buy)`;
 
     return [{ id: item.id, label: `${item.name} ×${line.quantity}`, detail, amount }];
@@ -108,7 +110,7 @@ export const selectReceipt = (state: RootState): ReceiptBreakdown => {
 
   // --- Service lines ---
   const services: ReceiptLineItem[] = selectedServiceIds.flatMap((id) => {
-    const svc = SERVICE_BY_ID[id];
+    const svc = serviceById[id];
     if (!svc) return [];
     return [{ id: svc.id, label: svc.name, detail: 'Flat fee', amount: svc.price }];
   });
@@ -160,6 +162,10 @@ export const selectUser = (state: RootState) => state.auth.user;
 export const selectIsAuthenticated = (state: RootState): boolean =>
   state.auth.token !== null;
 
+/** Whether the signed-in user is an admin (drives dashboard access). */
+export const selectIsAdmin = (state: RootState): boolean =>
+  state.auth.user?.role === 'ADMIN';
+
 /* ------------------------------------------------------------------ */
 /* Destinations                                                        */
 /* ------------------------------------------------------------------ */
@@ -174,3 +180,29 @@ export const selectDestinationsStatus = (state: RootState) =>
 /** Error message from the last failed destinations fetch, or null. */
 export const selectDestinationsError = (state: RootState) =>
   state.destinations.error;
+
+/* ------------------------------------------------------------------ */
+/* Gear                                                                */
+/* ------------------------------------------------------------------ */
+
+/** The server-fetched gear catalog. */
+export const selectGear = (state: RootState) => state.gear.items;
+
+/** Lifecycle of the gear fetch — drives loading / error UI. */
+export const selectGearStatus = (state: RootState) => state.gear.status;
+
+/** Error message from the last failed gear fetch, or null. */
+export const selectGearError = (state: RootState) => state.gear.error;
+
+/* ------------------------------------------------------------------ */
+/* On-site services                                                    */
+/* ------------------------------------------------------------------ */
+
+/** The server-fetched services catalog. */
+export const selectServices = (state: RootState) => state.services.items;
+
+/** Lifecycle of the services fetch — drives loading / error UI. */
+export const selectServicesStatus = (state: RootState) => state.services.status;
+
+/** Error message from the last failed services fetch, or null. */
+export const selectServicesError = (state: RootState) => state.services.error;

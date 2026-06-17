@@ -7,11 +7,11 @@
  */
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { useNavigate } from "react-router-dom";
-import { LogOut, ShoppingCart, Tent, UserRound } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { LayoutDashboard, LogOut, ShoppingCart, Tent, UserRound } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "@/store";
 import { clearCredentials } from "@/store/authSlice";
-import { selectCartCount, selectUser } from "@/store/selectors";
+import { selectCartCount, selectIsAdmin, selectUser } from "@/store/selectors";
 
 interface DashboardLayoutProps {
   /** Page content rendered beneath the navigation bar. */
@@ -25,6 +25,7 @@ export function DashboardLayout({
   // Live counter — re-renders only when the derived count actually changes.
   const cartCount = useAppSelector(selectCartCount);
   const user = useAppSelector(selectUser);
+  const isAdmin = useAppSelector(selectIsAdmin);
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
 
@@ -110,8 +111,19 @@ export function DashboardLayout({
               {menuOpen && (
                 <div
                   role="menu"
-                  className="absolute right-0 top-full z-50 mt-2 w-36 origin-top-right animate-scale-in overflow-hidden rounded-xl border border-stone-200 bg-white py-1 shadow-lg"
+                  className="absolute right-0 top-full z-50 mt-2 w-48 origin-top-right animate-scale-in overflow-hidden rounded-xl border border-stone-200 bg-white py-1 shadow-lg"
                 >
+                  {isAdmin && (
+                    <Link
+                      to="/admin"
+                      role="menuitem"
+                      onClick={() => setMenuOpen(false)}
+                      className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:text-emerald-700"
+                    >
+                      <LayoutDashboard className="h-4 w-4" />
+                      Admin dashboard
+                    </Link>
+                  )}
                   <button
                     type="button"
                     role="menuitem"

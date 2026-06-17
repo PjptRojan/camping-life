@@ -8,9 +8,10 @@
 
 import { Navigate, Route, Routes } from "react-router-dom";
 import Dashboard from "@/pages/Dashboard";
+import AdminDashboard from "@/pages/admin/AdminDashboard";
 import SignUpPage from "@/pages/SignUpPage";
 import SignInPage from "@/pages/SignInPage";
-import { ProtectedRoute } from "@/components";
+import { AdminRoute, ProtectedRoute } from "@/components";
 
 export default function App(): JSX.Element {
   return (
@@ -21,6 +22,14 @@ export default function App(): JSX.Element {
           <ProtectedRoute>
             <Dashboard />
           </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin"
+        element={
+          <AdminRoute>
+            <AdminDashboard />
+          </AdminRoute>
         }
       />
       <Route path="/signup" element={<SignUpPage />} />
